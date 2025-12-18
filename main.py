@@ -4,7 +4,6 @@ from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filte
 import yt_dlp
 
 BOT_TOKEN = "8324087844:AAGyDnaIW6w2VtxT6B-D9MdueeVvGwK2QCI"
-
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -15,12 +14,13 @@ async def download_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ أرسل رابط يوتيوب صحيح")
         return
 
-    await update.message.reply_text("⏳ جاري التحميل...")
+    await update.message.reply_text("⏳ جاري التحميل بأعلى جودة...")
 
     ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',  # أفضل جودة فيديو وصوت
         'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
-        'format': 'mp4',
         'quiet': True,
+        'merge_output_format': 'mp4',           # دمج الفيديو والصوت
     }
 
     try:
@@ -28,14 +28,23 @@ async def download_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
 
-        await update.message.reply_video(
-            video=open(filename, 'rb'),
-            caption="✅ تم التحميل بنجاح"
-        )
+        filesize = os.path.getsize(filename) / (1024 * 1024)  # بالميغابايت
+
+        if filesize < 50:
+            await update.message.reply_video(
+                video=open(filename, 'rb'),
+                caption=f"✅ تم التحميل بنجاح ({int(filesize)} MB)"
+            )
+        else:
+            await update.message.reply_text(
+                f"⚠️ حجم الفيديو كبير جدًا ({int(filesize)} MB) ولا يمكن إرساله مباشرة.\n"
+                f"يمكنك تحميله من هنا: {info.get('webpage_url')}"
+            )
 
         os.remove(filename)
 
-    except Exception:
+    except Exception as e:
+        print(e)
         await update.message.reply_text("❌ فشل التحميل")
 
 def main():
